@@ -4,7 +4,6 @@ import (
 	"context"
 	mongoSetup "em_backend/configs/mongo"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"time"
@@ -20,7 +19,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// CreateEvent handles the creation of an event.
 func CreateEvent(ctx *fiber.Ctx) error {
 	// Parse request body
 	var requestData dbModel.Event
@@ -30,91 +28,37 @@ func CreateEvent(ctx *fiber.Ctx) error {
 			"status":  "400 Bad Request",
 		})
 	}
-	fmt.Println(requestData)
 
 	// Validate required fields
-	requestData.EventName = strings.TrimSpace(requestData.EventName)
-	if requestData.EventName == "" {
+	if strings.TrimSpace(requestData.EventName) == "" {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": "Event name is required",
 			"status":  "400 Bad Request",
 		})
 	}
 
-	requestData.EventDescription = strings.TrimSpace(requestData.EventDescription)
-	if requestData.EventDescription == "" {
+	if requestData.RegistrationLimit <= 0 {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Event description is required",
+			"message": "Registration limit must be greater than 0",
 			"status":  "400 Bad Request",
 		})
 	}
 
-	if requestData.ParticipationCapacity <= 0 {
+	if requestData.EventDate < time.Now().Unix() {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Participant limit must be greater than 0",
+			"message": "Event date cannot be in the past",
 			"status":  "400 Bad Request",
 		})
 	}
 
-	currentTime := time.Now().Unix()
-	if requestData.EventDate < currentTime {
+	if requestData.PaymentType == "paid" && len(requestData.RegistrationData) == 0 {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Date of event cannot be in the past",
+			"message": "Registration data must be provided for paid events",
 			"status":  "400 Bad Request",
 		})
 	}
 
-	requestData.EventMode = strings.TrimSpace(requestData.EventMode)
-	if requestData.EventMode != "online" && requestData.EventMode != "offline" {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Event mode must be 'online' or 'offline'",
-			"status":  "400 Bad Request",
-		})
-	}
-
-	requestData.PaymentType = strings.TrimSpace(requestData.PaymentType)
-	if requestData.PaymentType != "free" && requestData.PaymentType != "paid" {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Payment type must be 'free' or 'paid'",
-			"status":  "400 Bad Request",
-		})
-	}
-
-	if requestData.PaymentType == "paid" && requestData.RegistrationAmount <= 0 {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Registration amount must be greater than 0 for paid events",
-			"status":  "400 Bad Request",
-		})
-	}
-
-	// Validate registration form fields
-	// for _, field := range requestData.RegistrationForm {
-	// 	field.Label = strings.TrimSpace(field.Label)
-	// 	field.Type = strings.TrimSpace(field.Type)
-
-	// 	if field.Label == "" {
-	// 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 			"message": "Form field label is required",
-	// 			"status":  "400 Bad Request",
-	// 		})
-	// 	}
-
-	// 	if field.Type != "textarea" && field.Type != "input" && field.Type != "select" {
-	// 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 			"message": "Unsupported form field type: " + field.Type,
-	// 			"status":  "400 Bad Request",
-	// 		})
-	// 	}
-
-	// 	if field.Type == "select" && len(field.Data) == 0 {
-	// 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 			"message": "Select field must have options",
-	// 			"status":  "400 Bad Request",
-	// 		})
-	// 	}
-	// }
-
-	// Generate unique ID and timestamps
+	// Generate unique IDs
 	eventID, err := uuid.NewRandom()
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -126,8 +70,17 @@ func CreateEvent(ctx *fiber.Ctx) error {
 	requestData.CreatedAt = time.Now().Unix()
 	requestData.Status = "active"
 
+	formID, err := uuid.NewRandom()
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Error generating registration form ID",
+			"status":  "500 Internal Server Error",
+		})
+	}
+	requestData.RegistrationDetailsFormId = formID.String()
+
 	// Connect to MongoDB
-	db, col, err := mongoSetup.ConnectMongo("events")
+	db, eventCollection, err := mongoSetup.ConnectMongo("events")
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "Error connecting to MongoDB",
@@ -136,8 +89,13 @@ func CreateEvent(ctx *fiber.Ctx) error {
 	}
 	defer db.Client().Disconnect(context.Background())
 
-	// Insert into MongoDB
-	_, err = col.InsertOne(ctx.Context(), requestData)
+	registerFormCollection := db.Collection("registerForm")
+
+	// Insert event data (excluding RegistrationData and RegistrationForm)
+	eventData := requestData
+	eventData.RegistrationData = nil
+	eventData.RegistrationForm = nil
+	_, err = eventCollection.InsertOne(ctx.Context(), eventData)
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "Failed to insert event",
@@ -145,21 +103,36 @@ func CreateEvent(ctx *fiber.Ctx) error {
 		})
 	}
 
+	// Insert registration form data
+	if len(requestData.RegistrationForm) > 0 {
+		registrationForm := dbModel.RegistrationForm{
+			RegistrationFormId:     formID.String(),
+			EventId:                eventID.String(),
+			RegistrationFormFields: requestData.RegistrationForm,
+		}
+		_, err = registerFormCollection.InsertOne(ctx.Context(), registrationForm)
+		if err != nil {
+			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "Failed to insert registration form",
+				"status":  "500 Internal Server Error",
+			})
+		}
+	}
+
 	// Return success response
 	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"message": "Event created successfully",
 		"status":  "201 Created",
 		"data": fiber.Map{
-			"eventId": requestData.UniqueId,
+			"eventId":            requestData.UniqueId,
+			"registrationFormId": requestData.RegistrationDetailsFormId,
 		},
 	})
 }
 
 func EditEvent(ctx *fiber.Ctx) error {
-	// loginDetails := ctx.Locals("userData").(common_responses.LoginDetails)
-	var requestData dbModel.Event
-
 	// Parse request body
+	var requestData dbModel.Event
 	err := json.Unmarshal(ctx.Body(), &requestData)
 	if err != nil {
 		return ctx.JSON(commonutils.CreateFailureResponse(&common_responses.FailureResponse{
@@ -177,7 +150,7 @@ func EditEvent(ctx *fiber.Ctx) error {
 		}))
 	}
 
-	// Find the event in the database
+	// Connect to MongoDB
 	db, col, err := mongoSetup.ConnectMongo("events")
 	if err != nil {
 		return ctx.JSON(commonutils.CreateFailureResponse(&common_responses.FailureResponse{
@@ -187,6 +160,7 @@ func EditEvent(ctx *fiber.Ctx) error {
 	}
 	defer db.Client().Disconnect(context.TODO())
 
+	// Find the event in the database
 	var existingEvent dbModel.Event
 	err = col.FindOne(ctx.Context(), bson.M{"uniqueId": eventID}).Decode(&existingEvent)
 	if err != nil {
@@ -202,44 +176,53 @@ func EditEvent(ctx *fiber.Ctx) error {
 		}))
 	}
 
-	// Update event fields
+	// Update fields that are allowed to be modified
 	if requestData.EventName != "" {
 		existingEvent.EventName = requestData.EventName
 	}
 	if requestData.EventDescription != "" {
 		existingEvent.EventDescription = requestData.EventDescription
 	}
-	if requestData.ParticipationCapacity > 0 {
-		existingEvent.ParticipationCapacity = requestData.ParticipationCapacity
+	if requestData.CategoryName != "" {
+		existingEvent.CategoryName = requestData.CategoryName
 	}
-	if requestData.EventDate > 0 {
-		existingEvent.EventDate = requestData.EventDate
+	if requestData.CategoryId != "" {
+		existingEvent.CategoryId = requestData.CategoryId
+	}
+	if requestData.EventType != "" {
+		existingEvent.EventType = requestData.EventType
 	}
 	if requestData.EventMode != "" {
 		existingEvent.EventMode = requestData.EventMode
 	}
+	if requestData.EventLocation != "" {
+		existingEvent.EventLocation = requestData.EventLocation
+	}
+	if requestData.EventDate > 0 {
+		existingEvent.EventDate = requestData.EventDate
+	}
+	if requestData.FlierImage != "" {
+		existingEvent.FlierImage = requestData.FlierImage
+	}
 	if requestData.PaymentType != "" {
 		existingEvent.PaymentType = requestData.PaymentType
 	}
-	if requestData.RegistrationAmount > 0 {
-		existingEvent.RegistrationAmount = requestData.RegistrationAmount
+	if len(requestData.TicketComboDetails) > 0 {
+		existingEvent.TicketComboDetails = requestData.TicketComboDetails
+	}
+	if requestData.Guidelines != "" {
+		existingEvent.Guidelines = requestData.Guidelines
+	}
+	if requestData.RegistrationLimit > 0 {
+		existingEvent.RegistrationLimit = requestData.RegistrationLimit
 	}
 
-	// Update the updatedAt field to the current timestamp
+	// Update the updatedAt field
 	existingEvent.UpdatedAt = time.Now().Unix()
 
 	// Update the event in the database
 	_, err = col.UpdateOne(ctx.Context(), bson.M{"uniqueId": eventID}, bson.M{
-		"$set": bson.M{
-			"eventName":             existingEvent.EventName,
-			"eventDescription":      existingEvent.EventDescription,
-			"participationCapacity": existingEvent.ParticipationCapacity,
-			"eventDate":             existingEvent.EventDate,
-			"eventMode":             existingEvent.EventMode,
-			"paymentType":           existingEvent.PaymentType,
-			"registrationAmount":    existingEvent.RegistrationAmount,
-			"updatedAt":             existingEvent.UpdatedAt,
-		},
+		"$set": existingEvent,
 	})
 	if err != nil {
 		return ctx.JSON(commonutils.CreateFailureResponse(&common_responses.FailureResponse{
@@ -305,11 +288,11 @@ func DeleteEvent(ctx *fiber.Ctx) error {
 		}))
 	}
 
-	// Mark the event as inactive and update the UpdatedAt field
+	// Mark the event as inactive and update the updatedAt field
 	existingEvent.Status = "inactive"
-	existingEvent.UpdatedAt = time.Now().Unix() // Set the updated timestamp
+	existingEvent.UpdatedAt = time.Now().Unix()
 
-	// Update the event's status and UpdatedAt in the database
+	// Update the event's status in the database
 	_, err = col.UpdateOne(ctx.Context(), bson.M{"uniqueId": eventID}, bson.M{
 		"$set": bson.M{
 			"status":    existingEvent.Status,

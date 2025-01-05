@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	common "em_backend/library/common"
 	loginFunc "em_backend/library/login"
 	commonModel "em_backend/models/common"
 	common_resp "em_backend/responses/common"
@@ -64,6 +65,14 @@ func AuthenticationMiddlewareForAdmin(ctx *fiber.Ctx) error {
 		}
 		return ctx.JSON(response)
 	}
+	if !common.CheckAdmin(session.UserInfo.Email) {
+		response := common_resp.FailureResponse{
+			Access:  false,
+			Status:  "401 Unauthorized",
+			Message: "Not an admin",
+		}
+		return ctx.JSON(response)
+	}
 	ctx.Locals("userData", session.UserInfo)
 	fmt.Println("evetin ok ------------")
 	// If the session is valid, proceed to the next middleware/handler
@@ -124,6 +133,7 @@ func AuthenticationMiddleware(ctx *fiber.Ctx) error {
 		}
 		return ctx.JSON(response)
 	}
+	session.UserInfo.IsAdmin = common.CheckAdmin(session.UserInfo.Email)
 	ctx.Locals("userData", session.UserInfo)
 	fmt.Println("evetin ok ------------")
 	// If the session is valid, proceed to the next middleware/handler

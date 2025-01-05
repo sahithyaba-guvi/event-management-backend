@@ -1,7 +1,13 @@
 package commonutils
 
 import (
+	"context"
+	mongoSetup "em_backend/configs/mongo"
+	commonModel "em_backend/models/common"
 	commonResp "em_backend/responses/common"
+	"fmt"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func CreateSuccessResponse(resp *commonResp.SuccessResponse) commonResp.SuccessResponse {
@@ -32,4 +38,34 @@ func CreateFailureResponse(resp *commonResp.FailureResponse) commonResp.FailureR
 		resp.Message = "Operation failed."
 	}
 	return *resp
+}
+
+func GetAdminList() commonModel.Admins {
+	db, _, err := mongoSetup.ConnectMongo("admin_list")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer db.Client().Disconnect(context.TODO())
+	mycol := db.Collection("admin_list")
+	var admins commonModel.Admins
+	errr := mycol.FindOne(context.TODO(), bson.D{}).Decode(&admins)
+	if errr != nil {
+		fmt.Println(errr)
+	}
+	return admins
+}
+func CheckAdmin(mail string) bool {
+	var adminList = GetAdminList()
+	flag := 0
+	for _, admin := range adminList.Admin {
+		if mail == admin {
+			flag = 1
+			break
+		}
+	}
+	if flag == 0 {
+		return false
+	} else {
+		return true
+	}
 }

@@ -11,4 +11,5 @@ func EventPanel(app *fiber.App) {
 	eventApi := app.Group("/event", middleware.AuthenticationMiddleware)
 
 	eventApi.Post("/getAllEvents", eventPanel.GetAllEvents)
+	eventApi.Post("/registerEvent", eventPanel.RegisterEvent)
 }
