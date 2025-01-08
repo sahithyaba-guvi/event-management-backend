@@ -4,6 +4,7 @@ import (
 	"context"
 	mongoSetup "em_backend/configs/mongo"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"time"
@@ -22,6 +23,7 @@ import (
 func CreateEvent(ctx *fiber.Ctx) error {
 	// Parse request body
 	var requestData dbModel.Event
+	fmt.Print("vate")
 	if err := ctx.BodyParser(&requestData); err != nil {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": "Error parsing request data",
@@ -37,12 +39,12 @@ func CreateEvent(ctx *fiber.Ctx) error {
 		})
 	}
 
-	if requestData.RegistrationLimit <= 0 {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Registration limit must be greater than 0",
-			"status":  "400 Bad Request",
-		})
-	}
+	// if requestData.RegistrationLimit <= 0 {
+	// 	return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	// 		"message": "Registration limit must be greater than 0",
+	// 		"status":  "400 Bad Request",
+	// 	})
+	// }
 
 	if requestData.EventDate < time.Now().Unix() {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -51,12 +53,12 @@ func CreateEvent(ctx *fiber.Ctx) error {
 		})
 	}
 
-	if requestData.PaymentType == "paid" && len(requestData.RegistrationData) == 0 {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Registration data must be provided for paid events",
-			"status":  "400 Bad Request",
-		})
-	}
+	// if requestData.PaymentType == "paid" && len(requestData.RegistrationData) == 0 {
+	// 	return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	// 		"message": "Registration data must be provided for paid events",
+	// 		"status":  "400 Bad Request",
+	// 	})
+	// }
 
 	// Generate unique IDs
 	eventID, err := uuid.NewRandom()
@@ -213,9 +215,9 @@ func EditEvent(ctx *fiber.Ctx) error {
 	if requestData.Guidelines != "" {
 		existingEvent.Guidelines = requestData.Guidelines
 	}
-	if requestData.RegistrationLimit > 0 {
-		existingEvent.RegistrationLimit = requestData.RegistrationLimit
-	}
+	// if requestData.RegistrationLimit > 0 {
+	// 	existingEvent.RegistrationLimit = requestData.RegistrationLimit
+	// }
 
 	// Update the updatedAt field
 	existingEvent.UpdatedAt = time.Now().Unix()

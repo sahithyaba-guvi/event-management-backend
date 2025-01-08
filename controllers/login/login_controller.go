@@ -97,6 +97,7 @@ func Login(ctx *fiber.Ctx) error {
 			"authToken": authToken,
 			"name":      user.UserName,
 			"email":     user.Email,
+			"isAdmin":   userInfo.IsAdmin,
 		},
 	}))
 }
@@ -194,6 +195,7 @@ func Register(ctx *fiber.Ctx) error {
 		Status:  "201 Created",
 		Data: fiber.Map{
 			"authToken": authToken,
+			"isAdmin":   common.CheckAdmin(userInfo.Email),
 		},
 	}))
 }
