@@ -6,7 +6,9 @@ import (
 	commonModel "em_backend/models/common"
 	commonResp "em_backend/responses/common"
 	"fmt"
+	"os"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -68,4 +70,12 @@ func CheckAdmin(mail string) bool {
 	} else {
 		return true
 	}
+}
+
+func LoadEnv(key string) string {
+	err := godotenv.Load(".env")
+	if err != nil {
+		fmt.Println("env load error:", err)
+	}
+	return os.Getenv(key)
 }
