@@ -24,4 +24,5 @@ type LoginDetails struct {
 	Hash      string `json:"hash"`
 	AuthToken string `json:"authToken" bson:"authToken"`
 	Access    string `json:"access"`
+	IsAdmin   bool   `json:"isAdmin"`
 }

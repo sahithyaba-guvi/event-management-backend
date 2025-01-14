@@ -11,4 +11,6 @@ func AdminPanel(app *fiber.App) {
 	adminApi := app.Group("/admin", middleware.AuthenticationMiddlewareForAdmin)
 
 	adminApi.Post("/addEvent", adminpanel.CreateEvent)
+	adminApi.Post("/editEvent", adminpanel.EditEvent)
+	adminApi.Post("/deleteEvent", adminpanel.DeleteEvent)
 }

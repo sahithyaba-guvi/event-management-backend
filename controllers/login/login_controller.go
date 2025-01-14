@@ -62,6 +62,8 @@ func Login(ctx *fiber.Ctx) error {
 		}))
 	}
 
+	// Find user by email
+
 	// Generate Auth Token
 	authToken, err := loginCommon.GenerateAuthToken(user.UserHash)
 	if err != nil {
@@ -76,6 +78,7 @@ func Login(ctx *fiber.Ctx) error {
 	userInfo.Email = user.Email
 	userInfo.Hash = user.UserHash
 	userInfo.AuthToken = authToken
+	userInfo.IsAdmin = common.CheckAdmin(user.Email)
 
 	// Store the token in Redis
 	err = loginCommon.StoreAuthTokenInRedis(userInfo)
@@ -94,6 +97,7 @@ func Login(ctx *fiber.Ctx) error {
 			"authToken": authToken,
 			"name":      user.UserName,
 			"email":     user.Email,
+			"isAdmin":   userInfo.IsAdmin,
 		},
 	}))
 }
@@ -191,6 +195,7 @@ func Register(ctx *fiber.Ctx) error {
 		Status:  "201 Created",
 		Data: fiber.Map{
 			"authToken": authToken,
+			"isAdmin":   common.CheckAdmin(userInfo.Email),
 		},
 	}))
 }

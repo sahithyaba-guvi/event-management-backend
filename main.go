@@ -27,6 +27,7 @@ func main() {
 	routes.Login(app)
 	routes.AdminPanel(app)
 	routes.EventPanel(app)
+	routes.PaymentPanel(app)
 
 	// Start the server
 	fmt.Println(app.Listen(":3001"))
