@@ -15,4 +15,6 @@ func EventPanel(app *fiber.App) {
 	eventApi.Post("/registerEvent", eventPanel.RegisterEvent)
 	eventApi.Post("/registration-form", eventPanel.GetRegistrationForm)
 	eventApi.Post("/getAllRegistrations", eventPanel.GetRegistrationDetails)
+	eventApi.Post("/getQR-ticket", eventPanel.GetTicketQR)
+	eventApi.Post("/verify-ticket", eventPanel.VerifyTicket)
 }
