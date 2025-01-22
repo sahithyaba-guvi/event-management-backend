@@ -13,10 +13,7 @@ func main() {
 	app := fiber.New()
 
 	// Use CORS middleware
-	app.Use(cors.New(cors.Config{
-		AllowMethods: "GET,PUT,POST,DELETE",
-		AllowOrigins: "*",
-	}))
+	app.Use(cors.New())
 
 	// Use Logger middleware to print incoming requests
 	app.Use(logger.New(logger.Config{
