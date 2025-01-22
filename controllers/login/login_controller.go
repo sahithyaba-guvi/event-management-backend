@@ -18,7 +18,7 @@ import (
 
 func Login(ctx *fiber.Ctx) error {
 	var loginRequest loginModel.LoginReq
-
+	fmt.Println("it came to login")
 	// Parse the login request
 	if err := ctx.BodyParser(&loginRequest); err != nil {
 		return ctx.JSON(common.CreateFailureResponse(&common_responses.FailureResponse{
