@@ -73,7 +73,7 @@ func CheckAdmin(mail string) bool {
 }
 
 func LoadEnv(key string) string {
-	err := godotenv.Load(".env")
+	err := godotenv.Load("env/local/.env")
 	if err != nil {
 		fmt.Println("env load error:", err)
 	}
