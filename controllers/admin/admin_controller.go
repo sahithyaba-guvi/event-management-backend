@@ -185,11 +185,8 @@ func EditEvent(ctx *fiber.Ctx) error {
 	if requestData.EventDescription != "" {
 		existingEvent.EventDescription = requestData.EventDescription
 	}
-	if requestData.CategoryName != "" {
-		existingEvent.CategoryName = requestData.CategoryName
-	}
-	if requestData.CategoryId != "" {
-		existingEvent.CategoryId = requestData.CategoryId
+	if requestData.Category != "" {
+		existingEvent.Category = requestData.Category
 	}
 	if requestData.EventType != "" {
 		existingEvent.EventType = requestData.EventType
@@ -212,8 +209,8 @@ func EditEvent(ctx *fiber.Ctx) error {
 	if len(requestData.TicketComboDetails) > 0 {
 		existingEvent.TicketComboDetails = requestData.TicketComboDetails
 	}
-	if requestData.Guidelines != "" {
-		existingEvent.Guidelines = requestData.Guidelines
+	if requestData.ParticipationGuidelines != "" {
+		existingEvent.ParticipationGuidelines = requestData.ParticipationGuidelines
 	}
 	// if requestData.RegistrationLimit > 0 {
 	// 	existingEvent.RegistrationLimit = requestData.RegistrationLimit
