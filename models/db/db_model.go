@@ -9,20 +9,20 @@ type UserData struct {
 }
 
 type Event struct {
-	UniqueId                  string                     `json:"uniqueId,omitempty" bson:"uniqueId"`
-	EventName                 string                     `json:"eventName" bson:"eventName"`
-	CategoryName              string                     `json:"categoryName" bson:"categoryName"`
-	CategoryId                string                     `json:"categoryId" bson:"categoryId"`
-	EventDescription          string                     `json:"eventDescription" bson:"eventDescription"`
-	EventType                 string                     `json:"eventType" bson:"eventType"`
-	EventMode                 string                     `json:"eventMode" bson:"eventMode"`
-	EventLocation             string                     `json:"eventLocation,omitempty" bson:"eventLocation"`
-	EventDate                 int64                      `json:"eventDate" bson:"eventDate"`
-	FlierImage                string                     `json:"flierImage" bson:"flierImage"`
-	PaymentType               string                     `json:"paymentType" bson:"paymentType"`
-	TicketComboDetails        []string                   `json:"ticketComboDetails" bson:"ticketComboDetails"`
-	Guidelines                string                     `json:"guidelines,omitempty" bson:"guidelines"`
-	RegistrationLimit         int                        `json:"registrationLimit" bson:"registrationLimit"`
+	UniqueId  string `json:"uniqueId,omitempty" bson:"uniqueId"`
+	EventName string `json:"eventName" bson:"eventName"`
+	Category  string `json:"category" bson:"category"`
+	// CategoryId                string                     `json:"categoryId" bson:"categoryId"`
+	EventDescription        string   `json:"eventDescription" bson:"eventDescription"`
+	EventType               string   `json:"eventType" bson:"eventType"`
+	EventMode               string   `json:"eventMode" bson:"eventMode"`
+	EventLocation           string   `json:"eventLocation,omitempty" bson:"eventLocation"`
+	EventDate               int64    `json:"eventDate" bson:"eventDate"`
+	FlierImage              string   `json:"flierImage" bson:"flierImage"`
+	PaymentType             string   `json:"paymentType" bson:"paymentType"`
+	TicketComboDetails      []string `json:"ticketComboDetails" bson:"ticketComboDetails"`
+	ParticipationGuidelines string   `json:"participationGuidelines,omitempty" bson:"participationGuidelines"`
+	// RegistrationLimit         int                        `json:"registrationLimit" bson:"registrationLimit"`
 	RegistrationDetailsFormId string                     `json:"registrationDetailsFormId,omitempty" bson:"registrationDetailsFormId"`
 	RegistrationCount         int                        `json:"registrationCount,omitempty" bson:"registrationCount"`
 	RegistrationData          []RegistrationPricingCombo `json:"registrationData,omitempty" bson:"-"`
