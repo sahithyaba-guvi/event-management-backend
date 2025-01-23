@@ -23,6 +23,8 @@ func ConnectToRedis() (*redis.Client, error) {
 		Password: "",
 		DB:       0,
 	})
+	redisURl := getEnv("ReDIS_URL") + ":6379"
+	fmt.Println("redis url ", redisURl)
 	pong, err := conn.Ping().Result()
 	if err != nil {
 		fmt.Println("Error connecting to Redis:", err)
