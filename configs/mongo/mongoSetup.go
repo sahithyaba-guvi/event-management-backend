@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -15,11 +16,11 @@ func ConnectMongo(collectionName string) (*mongo.Database, *mongo.Collection, er
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// err := godotenv.Load("env/local/.env")
-	// if err != nil {
-	// 	// log.Fatal("Error loading .env file")
-	// 	fmt.Println("Error loadin env file")
-	// }
+	err := godotenv.Load("env/local/.env")
+	if err != nil {
+		// log.Fatal("Error loading .env file")
+		fmt.Println("Error loadin env file")
+	}
 	// Retrieve the MongoDB connection URL from environment variables.
 	mongoURL := os.Getenv("MONGO_CLIENT_URL")
 	if mongoURL == "" {

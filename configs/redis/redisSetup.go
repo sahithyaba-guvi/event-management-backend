@@ -9,7 +9,7 @@ import (
 )
 
 func getEnv(key string) string {
-	var err = godotenv.Load(".env")
+	var err = godotenv.Load("env/local/.env")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -23,7 +23,7 @@ func ConnectToRedis() (*redis.Client, error) {
 		Password: "",
 		DB:       0,
 	})
-	redisURl := getEnv("ReDIS_URL") + ":6379"
+	redisURl := getEnv("REDIS_URL") + ":6379"
 	fmt.Println("redis url ", redisURl)
 	pong, err := conn.Ping().Result()
 	if err != nil {
