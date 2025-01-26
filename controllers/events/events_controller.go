@@ -79,6 +79,12 @@ func GetEventByID(ctx *fiber.Ctx) error {
 			Status:  "400 Bad Request",
 		}))
 	}
+	userDataInterface := ctx.Locals("userData")
+
+	sessionUserData, ok := userDataInterface.(common_responses.LoginDetails)
+	if !ok {
+		return ctx.JSON(commonutils.CreateFailureResponse(nil))
+	}
 
 	// Define filter and projection for the query
 	filter := bson.M{"uniqueId": eventId}
@@ -107,12 +113,26 @@ func GetEventByID(ctx *fiber.Ctx) error {
 			Status:  "500 Internal Server Error",
 		}))
 	}
-
+	isRegistered := false
+	//to check if the user registered for the event
+	registerEvent, err := mongoSetup.FindOneDoc("registrations", bson.M{"uniqueId": eventId, "primaryemailid": sessionUserData.Email}, bson.M{})
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			isRegistered = false
+		}
+	}
+	var registerInfo dbModel.RegistrationForm
+	if decodeErr := registerEvent.Decode(&registerInfo); decodeErr != nil {
+		fmt.Println("Error decoding event data", decodeErr)
+	}
+	var response event_response.GetEventByIdResp
+	response.Event = event
+	response.IsEmailRegistered = isRegistered
 	// Return the event as a success response
 	return ctx.JSON(commonutils.CreateSuccessResponse(&common_responses.SuccessResponse{
 		Message: "Event fetched successfully",
 		Status:  "200 OK",
-		Data:    event,
+		Data:    response,
 	}))
 }
 
@@ -207,10 +227,11 @@ func RegisterEvent(ctx *fiber.Ctx) error {
 	if !ok {
 		return ctx.JSON(commonutils.CreateFailureResponse(nil))
 	}
-	var requestData map[string]interface{} // Dynamic structure for request data
 
-	// Parse request body
-	err := json.Unmarshal(ctx.Body(), &requestData)
+	var requestData dbModel.RegisterReq
+
+	// Parse request body into structured data
+	err := ctx.BodyParser(&requestData)
 	if err != nil {
 		return ctx.JSON(commonutils.CreateFailureResponse(&common_responses.FailureResponse{
 			Message: "Error parsing request data",
@@ -219,8 +240,7 @@ func RegisterEvent(ctx *fiber.Ctx) error {
 	}
 
 	// Validate Event ID
-	eventID, ok := requestData["eventId"].(string)
-	if !ok || eventID == "" {
+	if requestData.UniqueId == "" {
 		return ctx.JSON(commonutils.CreateFailureResponse(&common_responses.FailureResponse{
 			Message: "Event ID is required",
 			Status:  "400 Bad Request",
@@ -242,13 +262,20 @@ func RegisterEvent(ctx *fiber.Ctx) error {
 	// Encode the QR code as Base64
 	qrCodeBase64 := base64.StdEncoding.EncodeToString(qrCodeBytes)
 
-	// Add metadata fields
-	requestData["registrationId"] = registrationID
-	requestData["primaryEmailId"] = sessionUserData.Email
-	requestData["qrCode"] = qrCodeBase64
-	requestData["isTicketVerified"] = false // Initially set to false
-	requestData["createdAt"] = time.Now().Unix()
-	requestData["updatedAt"] = time.Now().Unix()
+	// Add metadata fields to registration data
+	registeredAt := time.Now().Unix()
+	// Store data in the RegistrationData struct
+	registrationData := dbModel.RegistrationData{
+		UniqueId:                     requestData.UniqueId,
+		RegistrationId:               registrationID,
+		PrimaryEmailId:               sessionUserData.Email,
+		PrimaryMemberForm:            requestData.PrimaryMemberForm,
+		TeamDetailsForm:              requestData.TeamDetailsForm,
+		QrCode:                       qrCodeBase64,
+		RegisteredAt:                 registeredAt,
+		IsTicketVerified:             false,
+		TicketVerificationStatusTeam: []string{}, // Empty list for now
+	}
 
 	// Save the data as-is into the registrations collection
 	_, registrationsCol, err := mongoSetup.ConnectMongo("registrations")
@@ -260,7 +287,8 @@ func RegisterEvent(ctx *fiber.Ctx) error {
 	}
 	defer registrationsCol.Database().Client().Disconnect(context.TODO())
 
-	_, err = registrationsCol.InsertOne(ctx.Context(), requestData)
+	// Insert registration data into the collection
+	_, err = registrationsCol.InsertOne(ctx.Context(), registrationData)
 	if err != nil {
 		return ctx.JSON(commonutils.CreateFailureResponse(&common_responses.FailureResponse{
 			Message: "Failed to register for the event",
@@ -273,9 +301,11 @@ func RegisterEvent(ctx *fiber.Ctx) error {
 		Message: "Event registered successfully",
 		Status:  "200 OK",
 		Data: fiber.Map{
-			"eventId":        eventID,
+			"eventId":        requestData.UniqueId,
 			"registrationId": registrationID,
 			"qrCode":         qrCodeBase64, // Base64 string for QR code
+			"registeredAt":   registeredAt,
+			"ticketVerified": false, // Return default value
 		},
 	}))
 }

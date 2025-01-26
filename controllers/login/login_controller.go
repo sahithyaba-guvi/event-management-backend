@@ -4,6 +4,8 @@ import (
 	mongoSetup "em_backend/configs/mongo"
 	common "em_backend/library/common"
 	loginCommon "em_backend/library/login"
+	"encoding/json"
+	"strings"
 
 	dbModel "em_backend/models/db"
 	loginModel "em_backend/models/login"
@@ -195,7 +197,103 @@ func Register(ctx *fiber.Ctx) error {
 		Status:  "201 Created",
 		Data: fiber.Map{
 			"authToken": authToken,
+			"date":      userInfo,
 			"isAdmin":   common.CheckAdmin(userInfo.Email),
 		},
 	}))
+}
+
+func RegisterForgotPasswordEmail(ctx *fiber.Ctx) error {
+	var res common_responses.Response
+	var email loginModel.RegisterNewUserOrResetPasswordReq
+	requestBody := ctx.Body()
+	if len(requestBody) != 0 {
+		err := json.Unmarshal(requestBody, &email)
+		if err != nil {
+			fmt.Println("login requestBody unmarshal error:", err)
+			res.Access = false
+			res.Message = "Invalid/Empty Request body"
+			res.Status = "400 Bad Request"
+			return ctx.JSON(res)
+		}
+	} else {
+		res.Access = false
+		res.Message = "Invalid/Empty Request body"
+		res.Status = "400 Bad Request"
+		return ctx.JSON(res)
+	}
+
+	emailVal := strings.TrimSpace(strings.ToLower(email.Email))
+	emailExists, err := loginCommon.IsEmailRegistered(email.Email)
+	if err != nil {
+		return ctx.JSON(common.CreateFailureResponse(&common_responses.FailureResponse{
+			Message: "Error checking email existence",
+			Status:  "500 Internal Server Error",
+		}))
+	}
+
+	if emailExists {
+		return ctx.JSON(common.CreateFailureResponse(&common_responses.FailureResponse{
+			Message: "Email already registered",
+			Status:  "409 Conflict",
+		}))
+	}
+
+	isEmailSent, err := loginCommon.SendRegisterOrForgotPasswordEmail(emailVal, "register")
+	if !isEmailSent {
+		res.Access = false
+		res.Message = "Cannot send email right now"
+		res.Status = "409 Conflict"
+		return ctx.JSON(res)
+	}
+	res.Access = true
+	res.Message = "Reset password mail sent succesfully"
+	res.Status = "200 OK"
+	return ctx.JSON(res)
+}
+
+func VerifyOTPForgotPassword(ctx *fiber.Ctx) error {
+	var request loginModel.ForgotPasswordOTPRequest
+	var response common_responses.Response
+
+	requestBody := ctx.Body()
+
+	if len(requestBody) != 0 {
+		err := json.Unmarshal(requestBody, &request)
+		if err != nil {
+			fmt.Println("login requestBody unmarshal error:", err)
+			response.Access = false
+			response.Message = "Invalid/Empty Request body"
+			response.Status = "400 Bad Request"
+			return ctx.JSON(response)
+		}
+	} else {
+		response.Access = false
+		response.Message = "Invalid/Empty Request body"
+		response.Status = "400 Bad Request"
+		return ctx.JSON(response)
+	}
+
+	isOTPCorrect, err := loginCommon.VerifyForgotPasswordOTP(request.Email, request.OTP)
+
+	if err != nil {
+		fmt.Println("Cannot verify password right now", err)
+		response.Access = false
+		response.Message = "Incorrect OTP"
+		response.Status = "409 Conflict"
+		return ctx.JSON(response)
+	}
+
+	if !isOTPCorrect {
+		response.Access = false
+		response.Message = "Incorrect OTP"
+		response.Status = "409 Conflict"
+		return ctx.JSON(response)
+	}
+
+	response.Access = true
+	response.Message = "Correct OTP"
+	response.Status = "200 OK"
+	return ctx.JSON(response)
+
 }
