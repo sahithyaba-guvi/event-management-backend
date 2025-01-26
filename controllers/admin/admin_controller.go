@@ -4,7 +4,6 @@ import (
 	"context"
 	mongoSetup "em_backend/configs/mongo"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"time"
@@ -21,67 +20,58 @@ import (
 )
 
 func CreateEvent(ctx *fiber.Ctx) error {
-	// Parse request body
-	var requestData dbModel.Event
-	fmt.Print("vate")
-	if err := ctx.BodyParser(&requestData); err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "Error parsing request data",
-			"status":  "400 Bad Request",
-		})
+	// Parse payload into the EventPayload struct
+	var payload dbModel.EventPayload
+	if err := ctx.BodyParser(&payload); err != nil {
+
+		return ctx.JSON(commonutils.CreateFailureResponse(&common_responses.FailureResponse{
+			Message: "Error parsing request data",
+			Status:  "400 Bad Request",
+			Access:  false,
+		}))
 	}
 
-	// Validate required fields
-	if strings.TrimSpace(requestData.EventName) == "" {
+	// Validate fields
+	if strings.TrimSpace(payload.EventName) == "" {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": "Event name is required",
 			"status":  "400 Bad Request",
 		})
 	}
 
-	// if requestData.RegistrationLimit <= 0 {
-	// 	return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"message": "Registration limit must be greater than 0",
-	// 		"status":  "400 Bad Request",
-	// 	})
-	// }
-
-	if requestData.EventDate < time.Now().Unix() {
+	if payload.EventDate < time.Now().Unix() {
 		return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": "Event date cannot be in the past",
 			"status":  "400 Bad Request",
 		})
 	}
 
-	// if requestData.PaymentType == "paid" && len(requestData.RegistrationData) == 0 {
-	// 	return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"message": "Registration data must be provided for paid events",
-	// 		"status":  "400 Bad Request",
-	// 	})
-	// }
-
 	// Generate unique IDs
-	eventID, err := uuid.NewRandom()
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Error generating event ID",
-			"status":  "500 Internal Server Error",
-		})
-	}
-	requestData.UniqueId = eventID.String()
-	requestData.CreatedAt = time.Now().Unix()
-	requestData.Status = "active"
+	eventID, _ := uuid.NewRandom()
+	formID, _ := uuid.NewRandom()
 
-	formID, err := uuid.NewRandom()
-	if err != nil {
-		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "Error generating registration form ID",
-			"status":  "500 Internal Server Error",
-		})
+	// Create Event document
+	event := dbModel.Event{
+		UniqueId:                  eventID.String(),
+		EventName:                 payload.EventName,
+		Category:                  payload.Category,
+		EventDescription:          payload.EventDescription,
+		EventType:                 payload.EventType,
+		EventMode:                 payload.EventMode,
+		EventLocation:             payload.EventLocation,
+		EventDate:                 payload.EventDate,
+		FlierImage:                payload.FlierImage,
+		PaymentType:               payload.PaymentType,
+		ComboPrices:               payload.ComboPrices,
+		ParticipationGuidelines:   payload.ParticipationGuidelines,
+		TicketCombos:              payload.TicketCombos,
+		RegistrationDetailsFormId: formID.String(),
+		CreatedAt:                 time.Now().Unix(),
+		UpdatedAt:                 time.Now().Unix(),
+		Status:                    "active",
 	}
-	requestData.RegistrationDetailsFormId = formID.String()
 
-	// Connect to MongoDB
+	// Insert into MongoDB
 	db, eventCollection, err := mongoSetup.ConnectMongo("events")
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -91,34 +81,29 @@ func CreateEvent(ctx *fiber.Ctx) error {
 	}
 	defer db.Client().Disconnect(context.Background())
 
-	registerFormCollection := db.Collection("registerForm")
-
-	// Insert event data (excluding RegistrationData and RegistrationForm)
-	eventData := requestData
-	eventData.RegistrationData = nil
-	eventData.RegistrationForm = nil
-	_, err = eventCollection.InsertOne(ctx.Context(), eventData)
+	_, err = eventCollection.InsertOne(ctx.Context(), event)
 	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "Failed to insert event",
 			"status":  "500 Internal Server Error",
 		})
 	}
+	// Insert RegistrationForm into registerForm collection
+	registerForm := dbModel.RegistrationForm{
+		RegistrationFormId: formID.String(),
+		EventId:            eventID.String(),
+		// RegistrationFormFields: payload.RegistrationForm,
+		PrimaryMemberForm: payload.RegistrationForm.PrimaryMemberForm,
+		TeamDetailsForm:   payload.RegistrationForm.TeamDetailsForm,
+	}
 
-	// Insert registration form data
-	if len(requestData.RegistrationForm) > 0 {
-		registrationForm := dbModel.RegistrationForm{
-			RegistrationFormId:     formID.String(),
-			EventId:                eventID.String(),
-			RegistrationFormFields: requestData.RegistrationForm,
-		}
-		_, err = registerFormCollection.InsertOne(ctx.Context(), registrationForm)
-		if err != nil {
-			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"message": "Failed to insert registration form",
-				"status":  "500 Internal Server Error",
-			})
-		}
+	registerFormCollection := db.Collection("registerForm")
+	_, err = registerFormCollection.InsertOne(ctx.Context(), registerForm)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "Failed to insert registration form",
+			"status":  "500 Internal Server Error",
+		})
 	}
 
 	// Return success response
@@ -126,8 +111,8 @@ func CreateEvent(ctx *fiber.Ctx) error {
 		"message": "Event created successfully",
 		"status":  "201 Created",
 		"data": fiber.Map{
-			"eventId":            requestData.UniqueId,
-			"registrationFormId": requestData.RegistrationDetailsFormId,
+			"eventId":            event.UniqueId,
+			"registrationFormId": registerForm.RegistrationFormId,
 		},
 	})
 }
@@ -206,9 +191,9 @@ func EditEvent(ctx *fiber.Ctx) error {
 	if requestData.PaymentType != "" {
 		existingEvent.PaymentType = requestData.PaymentType
 	}
-	if len(requestData.TicketComboDetails) > 0 {
-		existingEvent.TicketComboDetails = requestData.TicketComboDetails
-	}
+	// if len(requestData.TicketComboDetails) > 0 {
+	// 	existingEvent.TicketComboDetails = requestData.TicketComboDetails
+	// }
 	if requestData.ParticipationGuidelines != "" {
 		existingEvent.ParticipationGuidelines = requestData.ParticipationGuidelines
 	}
