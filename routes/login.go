@@ -9,4 +9,5 @@ import (
 func Login(app *fiber.App) {
 	app.Post("/register", login.Register)
 	app.Post("/login", login.Login)
+	app.Post("/register-forgot-password-email", login.RegisterForgotPasswordEmail)
 }
