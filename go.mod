@@ -1,10 +1,11 @@
 module em_backend
 
-go 1.21
+go 1.22.0
 
-toolchain go1.22.4
+toolchain go1.23.3
 
 require (
+	github.com/aws/aws-sdk-go v1.55.6
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gofiber/fiber/v2 v2.52.5
@@ -12,9 +13,13 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/crypto v0.31.0
+	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
 )
 
-require golang.org/x/net v0.33.0 // indirect
+require (
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
+)
 
 require (
 	github.com/andybalholm/brotli v1.1.1 // indirect
